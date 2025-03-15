@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Liza Bird Arcade</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            display: flex; flex-direction: column; align-items: center; 
+            justify-content: center; height: 100vh; overflow: hidden; 
+            background: radial-gradient(circle, #0f0c29, #302b63, #24243e); 
+            font-family: 'Press Start 2P', cursive;
+            text-align: center;
+        }
+
+        #gameContainer { display: none; }
+        
+        canvas { display: block; max-width: 100%; height: auto; border: 4px solid #ffcc00; box-shadow: 0 0 20px #ffcc00; }
+
+        button {
+            margin: 10px;
+            padding: 15px 20px;
+            font-size: 16px;
+            font-family: 'Press Start 2P', cursive;
+            background: linear-gradient(45deg, #ff0000, #ff7300);
+            color: white;
+            border: 3px solid #fff;
+            border-radius: 10px;
+            cursor: pointer;
+            text-transform: uppercase;
+            box-shadow: 0 0 15px rgba(255, 0, 0, 0.8);
+            transition: all 0.2s ease-in-out;
+        }
+
+        button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 25px rgba(255, 0, 0, 1);
+        }
+
+        #restartBtn { display: none; }
+        #countdown {
+            position: absolute;
+            font-size: 100px;
+            font-weight: bold;
+            color: #ffcc00;
+            text-shadow: 0 0 20px #ffcc00;
+            display: none;
+        }
+
+        #scoreDisplay {
+            font-size: 20px;
+            color: #ffcc00;
+            text-shadow: 0 0 15px #ffcc00;
+            margin-bottom: 10px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="difficultyContainer">
+        <button id="easyBtn">Easy Mode</button>
+        <button id="normalBtn">Normal Mode</button>
+        <button id="hardBtn">Hard Mode</button>
+    </div>
+
+    <div id="gameContainer">
+        <div id="scoreDisplay">Score: 0</div>
+        <canvas id="gameCanvas"></canvas>
+        <button id="restartBtn">Restart</button>
+    </div>
+
+    <div id="countdown"></div>
+    
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const easyBtn = document.getElementById("easyBtn");
+        const normalBtn = document.getElementById("normalBtn");
+        const hardBtn = document.getElementById("hardBtn");
+        const restartBtn = document.getElementById("restartBtn");
+        const countdownText = document.getElementById("countdown");
+        const gameContainer = document.getElementById("gameContainer");
+        const scoreDisplay = document.getElementById("scoreDisplay");
+        const difficultyContainer = document.getElementById("difficultyContainer");
+
+        canvas.width = window.innerWidth * 0.8;
+        canvas.height = window.innerHeight * 0.7;
+
+        const birdImg = new Image();
+        birdImg.src = "https://raw.githubusercontent.com/flappylizabirdy/Game/main/IMG_20250315_125013.jpg";
+
+        const bgImg = new Image();
+        bgImg.src = "https://raw.githubusercontent.com/flappylizabirdy/Game/main/IMG_20250315_145207%20(1).jpg";
+
+        const bgMusic = new Audio("https://raw.githubusercontent.com/flappylizabirdy/Game/main/1%20HOUR%20%F0%9F%91%BEARCADE%20GAMING%20MUSIC%F0%9F%91%BE%20%20Gaming%2C%20Arcade%2C%208Bit%2C%20Fantasy%2C%20Science-Fiction%2C%20RPG%2C%20Retro%2C%20Console.mp3");
+        const scoreSound = new Audio("https://raw.githubusercontent.com/flappylizabirdy/Game/main/March%2015%2C%202025-yt.savetube.me.mp3");
+        const countdownSound = new Audio("https://raw.githubusercontent.com/flappylizabirdy/Game/main/Countdown%203%2C%202%2C%201...%20Go!%20(Deep%20Voice)%20Sound%20Effect%20-%20Video%20Games.mp3");
+const gameoversound = new Audio("https://raw.githubusercontent.com/flappylizabirdy/Game/main/March%2015%2C%202025.mp3");
+        bgMusic.volume = 0.1;
+        scoreSound.volume = 1;
+        countdownSound.volume = 1;
+
+        let bird, pipes, gameRunning, score, pipeSpeed, pipeGap, pipeColors, gameLoop, pipeInterval;
+
+        function setupGame(speed, gap) {
+            bird = { x: 50, y: canvas.height / 2, width: 40, height: 30, velocity: 0, gravity: 0.5 };
+            pipes = [];
+            score = 0;
+            pipeColors = "#ffcc00";
+            pipeSpeed = speed;
+            pipeGap = gap;
+            restartBtn.style.display = "none";
+            scoreDisplay.innerText = "Score: 0";
+        }
+
+        function createPipe() {
+            let pipeHeight = Math.random() * (canvas.height - pipeGap - 50) + 30;
+            pipes.push({ x: canvas.width, topHeight: pipeHeight, bottomY: pipeHeight + pipeGap, width: 80, speed: pipeSpeed, scored: false });
+        }
+function getRandomColor() {
+    const letters = '0123456789ABCDEF';
+    let color = '#';
+    for (let i = 0; i < 6; i++) {
+        color += letters[Math.floor(Math.random() * 16)];
+    }
+    return color;
+}
+        function update() {
+            if (!gameRunning) return;
+
+            bird.velocity += bird.gravity;
+            bird.y += bird.velocity;
+
+            pipes.forEach(pipe => {
+                pipe.x -= pipe.speed;
+
+                if (bird.x < pipe.x + pipe.width && bird.x + bird.width > pipe.x &&
+                    (bird.y < pipe.topHeight || bird.y + bird.height > pipe.bottomY)) {
+                    gameOver();
+                }
+
+                if (!pipe.scored && pipe.x + pipe.width < bird.x) {
+                    score++;
+                    pipe.scored = true;
+                    scoreSound.currentTime = 0;
+                    scoreSound.play();
+                    scoreDisplay.innerText = `Score: ${score}`;
+                    if (score % 10 === 0) pipeColors = getRandomColor();
+                }
+            });
+
+            pipes = pipes.filter(pipe => pipe.x + pipe.width > 0);
+
+            if (bird.y + bird.height >= canvas.height || bird.y <= 0) gameOver();
+
+            draw();
+            gameLoop = requestAnimationFrame(update);
+        }
+
+        function draw() {
+            ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
+            ctx.drawImage(birdImg, bird.x, bird.y, bird.width, bird.height);
+            ctx.fillStyle = pipeColors;
+            pipes.forEach(pipe => {
+                ctx.fillRect(pipe.x, 0, pipe.width, pipe.topHeight);
+                ctx.fillRect(pipe.x, pipe.bottomY, pipe.width, canvas.height - pipe.bottomY);
+            });
+        }
+
+        function jump() { if (gameRunning) bird.velocity = -7; }
+
+        function gameOver() { 
+        gameoversound.play();
+            gameRunning = false; 
+            restartBtn.style.display = "block"; 
+            bgMusic.pause(); 
+            cancelAnimationFrame(gameLoop); 
+            clearInterval(pipeInterval);
+        }
+
+        function restartGame() {
+        gameoversound.pause();
+gameoversound.currentTime = 0; // Reset to the beginning
+            setupGame(pipeSpeed, pipeGap);
+            bgMusic.currentTime = 0;
+            bgMusic.play();
+            gameRunning = true;
+            restartBtn.style.display = "none";
+            pipeInterval = setInterval(createPipe, 2000);
+            update();
+        }
+
+        function startGame(speed, gap) {
+            setupGame(speed, gap);
+            difficultyContainer.style.display = "none"; 
+            countdownSound.play();
+            countdownText.style.display = "block";
+            
+            
+            countdown(4);
+        }
+
+        function countdown(number) {
+            countdownText.innerText = number;
+            if (number > 1) setTimeout(() => countdown(number - 1), 1000);
+            else setTimeout(() => {
+                countdownText.style.display = "none";
+                gameContainer.style.display = "block";
+                scoreDisplay.style.display = "block";
+                gameRunning = true;
+                bgMusic.play();
+                pipeInterval = setInterval(createPipe, 2000);
+                update();
+            }, 1000);
+        }
+
+        easyBtn.onclick = () => startGame(2, 180);
+        normalBtn.onclick = () => startGame(3, 140);
+        hardBtn.onclick = () => startGame(4, 100);
+        restartBtn.onclick = restartGame;
+        document.addEventListener("keydown", jump);
+        document.addEventListener("touchstart", jump);
+    </script>
+</body>
+</html>
